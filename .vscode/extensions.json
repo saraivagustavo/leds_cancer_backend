@@ -1,0 +1,21 @@
+{
+    "recommendations": [
+        // Essenciais
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        // Qualidade de código (SUBSTITUA as antigas por estas)
+        "ms-python.black-formatter",
+        "ms-python.flake8", // ← Nova extensão Flake8
+        "ms-python.mypy-type-checker", // ← Nova extensão Mypy
+        "ms-python.isort",
+        // Produtividade
+        "njpwerner.autodocstring",
+        "kevinrose.vsc-python-indent",
+        "cstrap.python-snippets",
+        // Git
+        "eamodio.gitlens",
+        "vivaxy.vscode-conventional-commits",
+        // Visual
+        "vscode-icons-team.vscode-icons"
+    ]
+}

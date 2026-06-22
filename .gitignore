@@ -1,0 +1,12 @@
+*.venv/
+*__pycache__/
+*pyc
+*.pyo
+*.pyd
+*migrations/
+*.log
+*.env
+*.sqlite3
+*.db
+
+*egg-info/
