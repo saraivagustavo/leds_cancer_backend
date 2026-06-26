@@ -1,11 +1,17 @@
 from django.contrib import admin
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Doctor
-
-
-# Register your models here.
-class DoctorAdmin(admin.ModelAdmin):
-    pass
+from .models import User
 
 
-admin.site.register(Doctor, DoctorAdmin)
+@admin.register(User)
+class UserAdmin(BaseUserAdmin):
+    list_display = ("username", "email", "crm", "role", "is_active", "is_staff")
+    list_filter = ("role", "is_active", "is_staff")
+    fieldsets = BaseUserAdmin.fieldsets + (  # type: ignore[operator]
+        ("Perfil", {"fields": ("crm", "role")}),
+    )
+    add_fieldsets = BaseUserAdmin.add_fieldsets + (  # type: ignore[operator]
+        ("Perfil", {"fields": ("email", "crm", "role")}),
+    )
+    search_fields = ("username", "email", "crm")
