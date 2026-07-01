@@ -31,6 +31,13 @@ class UserRepository:
     def get_all_active(self) -> QuerySet[User]:
         return User.objects.filter(is_active=True)
 
+    def get_active_physicians(self) -> QuerySet[User]:
+        """Returns active users with role medico or tecnico (used for physician autocomplete)."""
+        return User.objects.filter(
+            is_active=True,
+            role__in=["medico", "tecnico"],
+        ).order_by("first_name", "last_name")
+
     def create(
         self,
         username: str,

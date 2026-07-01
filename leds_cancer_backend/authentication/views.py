@@ -6,8 +6,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .repositories import UserRepository
 from .serializers import (
     CustomTokenObtainPairSerializer,
+    PhysicianSerializer,
     RegisterSerializer,
     UpdatePasswordSerializer,
     UpdateProfileSerializer,
@@ -15,6 +17,7 @@ from .serializers import (
 )
 
 _TAG = "Autenticação"
+_repo = UserRepository()
 
 
 @extend_schema(
@@ -111,3 +114,19 @@ class UpdatePasswordView(APIView):
         request.user.set_password(serializer.validated_data["new_password"])  # type: ignore[union-attr]
         request.user.save(update_fields=["password"])  # type: ignore[union-attr]
         return Response({"detail": "Senha alterada com sucesso."})
+
+
+@extend_schema(
+    tags=[_TAG],
+    summary="Listar médicos/técnicos ativos",
+    description="Retorna todos os usuários ativos com role médico ou técnico. Usado pelo autocomplete do frontend.",
+    responses=PhysicianSerializer(many=True),
+)
+class PhysicianListView(APIView):
+    """GET /api/auth/users/ — list of active physicians for autocomplete."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        users = _repo.get_active_physicians()
+        return Response(PhysicianSerializer(users, many=True).data)

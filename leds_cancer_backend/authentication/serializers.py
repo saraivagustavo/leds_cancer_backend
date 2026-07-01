@@ -25,6 +25,20 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.get_full_name() or obj.username
 
 
+class PhysicianSerializer(serializers.ModelSerializer):
+    """Compact read-only serializer for the physician autocomplete endpoint."""
+
+    full_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ("id", "full_name", "crm", "role")
+        read_only_fields = fields
+
+    def get_full_name(self, obj: User) -> str:
+        return obj.get_full_name() or obj.username
+
+
 # ─── Registro ─────────────────────────────────────────────────────────────────
 
 class RegisterSerializer(serializers.Serializer):
