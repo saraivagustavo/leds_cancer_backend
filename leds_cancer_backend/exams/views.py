@@ -9,10 +9,12 @@ from rest_framework.views import APIView
 from .repositories import ExamRepository
 from .serializers import (
     DashboardStatsSerializer,
+    ExamImageTokenSerializer,
     ExamListSerializer,
     ExamWriteSerializer,
     RecentExamSerializer,
 )
+from .tokens import generate_token, verify_token
 
 _repo = ExamRepository()
 _TAG_EXAMS = "Exames"
@@ -177,3 +179,108 @@ class DashboardStatsView(APIView):
         }
         serializer = DashboardStatsSerializer(data)
         return Response(serializer.data)
+
+
+# ─── Image token ──────────────────────────────────────────────────────────────
+
+@extend_schema(
+    tags=[_TAG_EXAMS],
+    summary="Gerar token de acesso à imagem",
+    description=(
+        "Gera um token HMAC temporário (padrão: 15 min) que permite a um "
+        "serviço externo buscar a imagem do exame sem precisar de JWT. "
+        "Requer autenticação do usuário solicitante."
+    ),
+    responses=ExamImageTokenSerializer,
+)
+class ExamImageTokenView(APIView):
+    """POST /api/exams/{id}/image-token/ — issue a short-lived HMAC token."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, pk: int) -> Response:
+        exam = _repo.get_by_id(pk)
+        if exam is None:
+            return Response({"detail": "Exame não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not exam.image_file:
+            return Response(
+                {"detail": "Este exame não possui imagem associada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        token, expires_ts = generate_token(pk)
+        serializer = ExamImageTokenSerializer({"token": token, "expires_at": expires_ts})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+# ─── Image download (serviço externo) ────────────────────────────────────────
+
+@extend_schema(
+    tags=[_TAG_EXAMS],
+    summary="Baixar imagem do exame via token HMAC",
+    description=(
+        "Endpoint público (sem JWT) para serviços externos baixarem a imagem. "
+        "Requer os query params `token` (HMAC hex) e `expires` (Unix timestamp). "
+        "O token deve ter sido gerado por POST /api/exams/{id}/image-token/."
+    ),
+    responses={(200, "image/*"): {}},
+)
+class ExamImageDownloadView(APIView):
+    """GET /api/exams/{id}/image/?token=<hmac>&expires=<ts>"""
+
+    permission_classes: list = []  # autenticação feita via HMAC
+
+    def get(self, request: Request, pk: int) -> Response:
+        from django.http import FileResponse
+
+        token = request.query_params.get("token", "")
+        expires_raw = request.query_params.get("expires", "")
+
+        # ── Valida parâmetros ──────────────────────────────────────────────
+        if not token or not expires_raw:
+            return Response(
+                {"detail": "Parâmetros 'token' e 'expires' são obrigatórios."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            expires_ts = int(expires_raw)
+        except ValueError:
+            return Response(
+                {"detail": "Parâmetro 'expires' deve ser um inteiro (Unix timestamp)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Verifica HMAC ──────────────────────────────────────────────────
+        if not verify_token(pk, token, expires_ts):
+            return Response(
+                {"detail": "Token inválido ou expirado."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ── Busca o exame e a imagem ───────────────────────────────────────
+        exam = _repo.get_by_id(pk)
+        if exam is None:
+            return Response({"detail": "Exame não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not exam.image_file:
+            return Response(
+                {"detail": "Este exame não possui imagem associada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # ── Serve o arquivo ────────────────────────────────────────────────
+        try:
+            image = exam.image_file.open("rb")
+        except FileNotFoundError:
+            return Response(
+                {"detail": "Arquivo de imagem não encontrado no servidor."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return FileResponse(
+            image,
+            as_attachment=False,
+            filename=exam.image_file.name.split("/")[-1],
+        )

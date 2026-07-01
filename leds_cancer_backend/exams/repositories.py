@@ -61,7 +61,7 @@ class ExamRepository:
     def delete(self, exam: Exam) -> None:
         exam.delete()
 
-    # ── Dashboard stats ───────────────────────────────────────────────────────
+    # ── Dashboard ───────────────────────────────────────────────────────
 
     def count_today(self) -> int:
         from django.utils import timezone

@@ -78,7 +78,6 @@ TEMPLATES: list[Any] = [
 WSGI_APPLICATION = "leds_cancer_backend.wsgi.application"
 
 # ─── Banco de dados ───────────────────────────────────────────────────────────
-# Se DATABASE_URL estiver vazio ou ausente, usa SQLite por padrão.
 
 _database_url: str = config("DATABASE_URL", default="")
 
@@ -138,6 +137,13 @@ SPECTACULAR_SETTINGS = {
         {"name": "Dashboard", "description": "Estatísticas e resumo do sistema"},
     ],
 }
+
+# ─── Image token (HMAC) ──────────────────────────────────────────────────────
+# Chave secreta dedicada para assinar tokens de imagem.
+# Se não definida, usa o SECRET_KEY do Django como fallback.
+IMAGE_TOKEN_SECRET: str = config("IMAGE_TOKEN_SECRET", default=SECRET_KEY)
+# Tempo de vida do token em segundos (padrão: 15 min)
+IMAGE_TOKEN_TTL_SECONDS: int = config("IMAGE_TOKEN_TTL_SECONDS", default=900, cast=int)
 
 # ─── Internacionalização ──────────────────────────────────────────────────────
 

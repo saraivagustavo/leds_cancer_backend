@@ -124,3 +124,14 @@ class DashboardStatsSerializer(serializers.Serializer):
     pending_exams = serializers.IntegerField()
     monthly_diagnostics = serializers.IntegerField()
     concluded_today = serializers.IntegerField()
+
+
+class ExamImageTokenSerializer(serializers.Serializer):
+    """Returned by POST /api/exams/{id}/image-token/."""
+
+    token = serializers.CharField(
+        help_text="HMAC-SHA256 hex — envie como query param ?token= na rota de download."
+    )
+    expires_at = serializers.IntegerField(
+        help_text="Unix timestamp de expiração — envie como query param ?expires= na rota de download."
+    )
