@@ -5,6 +5,8 @@ from patients.models import Patient
 
 
 class ExamStatus(models.TextChoices):
+    """Status possíveis de um exame de mamografia."""
+
     PENDENTE = "pendente", "Pendente"
     EM_ANALISE = "em_analise", "Em análise"
     CONCLUIDO = "concluido", "Concluído"
@@ -12,21 +14,41 @@ class ExamStatus(models.TextChoices):
 
 
 class ExamTechnique(models.TextChoices):
+    """Técnicas de mamografia suportadas pelo sistema."""
+
     DIGITAL = "digital", "Mamografia Digital"
     TOMOSSINTESE = "3d_tomossintese", "Mamografia 3D (Tomossíntese)"
     CONTRASTE = "contraste", "Mamografia com Contraste"
 
 
 class BreastSide(models.TextChoices):
+    """Lado da mama examinada."""
+
     ESQUERDA = "esquerda", "Esquerda"
     DIREITA = "direita", "Direita"
     BILATERAL = "bilateral", "Bilateral"
 
 
 class Exam(models.Model):
-    """
-    Represents a mammography exam ordered for a patient.
-    The image_file is stored server-side (media upload).
+    """Representa um exame de mamografia vinculado a um paciente.
+
+    A imagem do exame é armazenada no servidor via upload multipart
+    e salva em ``media/exams/images/<ano>/<mês>/``. O acesso externo
+    à imagem é controlado por token HMAC (ver ``exams.tokens``).
+
+    Attributes:
+        patient: Paciente ao qual o exame pertence (cascade delete).
+        exam_date: Data de realização do exame.
+        technique: Técnica utilizada (ver ``ExamTechnique``).
+        breast_side: Lado examinado (ver ``BreastSide``).
+        clinical_history: Histórico clínico e observações (opcional).
+        requesting_physician: Nome do médico solicitante (opcional).
+        image_file: Arquivo de imagem enviado via upload (opcional).
+        status: Status atual do exame (ver ``ExamStatus``).
+        radiologist: Profissional que realizou a análise (opcional,
+            ``SET_NULL`` ao ser removido).
+        created_at: Data/hora de criação (automático).
+        updated_at: Data/hora da última atualização (automático).
     """
 
     patient = models.ForeignKey(
@@ -66,7 +88,6 @@ class Exam(models.Model):
         default=ExamStatus.PENDENTE,
         verbose_name="Status",
     )
-    # Doctor/technician who performed the analysis
     radiologist = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -86,10 +107,12 @@ class Exam(models.Model):
 
     @property
     def exam_type(self) -> str:
+        """Retorna o label legível da técnica (ex: "Mamografia Digital")."""
         return self.get_technique_display()  # type: ignore[return-value]
 
     @property
     def radiologist_name(self) -> str:
+        """Retorna o nome do radiologista ou ``"Aguardando atribuição"``."""
         if self.radiologist:
             return self.radiologist.get_full_name() or self.radiologist.username
         return "Aguardando atribuição"

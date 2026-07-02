@@ -3,15 +3,29 @@ from django.db import models
 
 
 class UserRole(models.TextChoices):
+    """Papéis disponíveis para usuários do sistema."""
+
     MEDICO = "medico", "Médico(a)"
     TECNICO = "tecnico", "Técnico(a)"
     ADMINISTRADOR = "administrador", "Administrador(a)"
 
 
 class User(AbstractUser):
-    """
-    Custom user model. Uses email as the primary login identifier.
-    CRM field covers doctors and general professional ID for other roles.
+    """Modelo de usuário customizado do sistema LEDS Cancer.
+
+    Estende AbstractUser do Django adicionando campos de perfil
+    profissional e um fluxo de aprovação manual por administrador.
+
+    O login aceita ``username``, mas o ``CustomTokenObtainPairSerializer``
+    permite autenticar também via ``email`` ou ``crm``.
+
+    Attributes:
+        email: Endereço de e-mail único do usuário.
+        crm: Registro profissional (CRM para médicos, matrícula para
+            técnicos). Opcional e único quando informado.
+        role: Papel do usuário no sistema (ver ``UserRole``).
+        is_active: ``False`` por padrão — indica conta pendente de
+            aprovação pelo administrador. Após aprovação passa a ``True``.
     """
 
     email = models.EmailField(unique=True)
@@ -21,7 +35,7 @@ class User(AbstractUser):
         choices=UserRole.choices,
         default=UserRole.MEDICO,
     )
-    # is_active=False means "pending admin approval" after registration
+    # is_active=False significa "pendente de aprovação pelo admin"
     is_active = models.BooleanField(default=False)
 
     USERNAME_FIELD = "username"

@@ -9,9 +9,10 @@ DATETIME_FORMAT = "%d/%m/%Y %H:%M"
 
 
 class ExamSummaryForPatientSerializer(serializers.ModelSerializer):
-    """
-    Compact serializer used inside PatientDetailSerializer.
-    Matches the PatientExam interface expected by the frontend.
+    """Serializer compacto de exame aninhado no detalhe do paciente.
+
+    Corresponde à interface ``PatientExam`` esperada pelo frontend.
+    Importado de forma lazy pelo app ``patients`` para evitar circulares.
     """
 
     date = serializers.DateField(source="exam_date", format=DATE_FORMAT)
@@ -23,16 +24,19 @@ class ExamSummaryForPatientSerializer(serializers.ModelSerializer):
         fields = ("id", "date", "type", "status", "radiologist")
 
     def get_type(self, obj: Exam) -> str:
+        """Retorna o label legível da técnica do exame."""
         return obj.exam_type
 
     def get_radiologist(self, obj: Exam) -> str:
+        """Retorna o nome do radiologista ou texto padrão."""
         return obj.radiologist_name
 
 
 class RecentExamSerializer(serializers.ModelSerializer):
-    """
-    Serializer for the dashboard recent-exams list.
-    Matches the RecentExam interface expected by the frontend.
+    """Serializer para o feed de exames recentes do dashboard.
+
+    Corresponde à interface ``RecentExam`` esperada pelo frontend.
+    Usado em ``GET /api/exams/recent/``.
     """
 
     patient_name = serializers.CharField(source="patient.name")
@@ -44,14 +48,21 @@ class RecentExamSerializer(serializers.ModelSerializer):
         fields = ("id", "patient_name", "datetime", "exam_type", "status")
 
     def get_datetime(self, obj: Exam) -> str:
+        """Retorna data/hora de criação no formato ``dd/MM/yyyy HH:MM``."""
         return obj.created_at.strftime(DATETIME_FORMAT)
 
     def get_exam_type(self, obj: Exam) -> str:
+        """Retorna o label legível da técnica do exame."""
         return obj.exam_type
 
 
 class ExamListSerializer(serializers.ModelSerializer):
-    """Used in the history / exam list endpoints."""
+    """Serializer completo para o histórico e detalhe individual de exames.
+
+    Usado nos endpoints ``GET /api/exams/`` e ``GET /api/exams/{id}/``.
+    Inclui dados desnormalizados do paciente e do radiologista para
+    evitar chamadas extras no frontend.
+    """
 
     patient_id = serializers.IntegerField(source="patient.id")
     patient_name = serializers.CharField(source="patient.name")
@@ -65,30 +76,31 @@ class ExamListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = (
-            "id",
-            "patient_id",
-            "patient_name",
-            "datetime",
-            "exam_type",
-            "status",
-            "radiologist",
-            "breast_side",
-            "requesting_physician",
-            "clinical_history",
+            "id", "patient_id", "patient_name", "datetime",
+            "exam_type", "status", "radiologist", "breast_side",
+            "requesting_physician", "clinical_history",
         )
 
     def get_datetime(self, obj: Exam) -> str:
+        """Retorna data/hora de criação no formato ``dd/MM/yyyy HH:MM``."""
         return obj.created_at.strftime(DATETIME_FORMAT)
 
     def get_exam_type(self, obj: Exam) -> str:
+        """Retorna o label legível da técnica do exame."""
         return obj.exam_type
 
     def get_radiologist(self, obj: Exam) -> str:
+        """Retorna o nome do radiologista ou texto padrão."""
         return obj.radiologist_name
 
 
 class ExamWriteSerializer(serializers.ModelSerializer):
-    """Used for create / update operations. Accepts image upload."""
+    """Serializer para criação e atualização de exames.
+
+    Aceita upload de imagem via multipart/form-data.
+    Campos ``image_file``, ``status``, ``radiologist``,
+    ``clinical_history`` e ``requesting_physician`` são opcionais.
+    """
 
     exam_date = serializers.DateField(
         format=DATE_FORMAT,
@@ -98,15 +110,9 @@ class ExamWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Exam
         fields = (
-            "patient",
-            "exam_date",
-            "technique",
-            "breast_side",
-            "clinical_history",
-            "requesting_physician",
-            "image_file",
-            "status",
-            "radiologist",
+            "patient", "exam_date", "technique", "breast_side",
+            "clinical_history", "requesting_physician", "image_file",
+            "status", "radiologist",
         )
         extra_kwargs = {
             "image_file": {"required": False},
@@ -118,7 +124,7 @@ class ExamWriteSerializer(serializers.ModelSerializer):
 
 
 class DashboardStatsSerializer(serializers.Serializer):
-    """Serializes the stats block returned by GET /api/dashboard/stats/."""
+    """Serializer dos contadores retornados por ``GET /api/dashboard/stats/``."""
 
     today_patients = serializers.IntegerField()
     pending_exams = serializers.IntegerField()
@@ -127,7 +133,11 @@ class DashboardStatsSerializer(serializers.Serializer):
 
 
 class ExamImageTokenSerializer(serializers.Serializer):
-    """Returned by POST /api/exams/{id}/image-token/."""
+    """Serializer da resposta de ``POST /api/exams/{id}/image-token/``.
+
+    Os dois campos devem ser repassados como query params ao chamar
+    ``GET /api/exams/{id}/image/?token=<token>&expires=<expires_at>``.
+    """
 
     token = serializers.CharField(
         help_text="HMAC-SHA256 hex — envie como query param ?token= na rota de download."

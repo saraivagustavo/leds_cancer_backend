@@ -26,6 +26,12 @@ _repo = UserRepository()
     description="Autentica via e-mail ou CRM. Retorna access + refresh token e dados do usuário.",
 )
 class CustomTokenObtainPairView(TokenObtainPairView):
+    """POST /api/auth/token/ — login por e-mail ou CRM.
+
+    Delega a lógica ao ``CustomTokenObtainPairSerializer``, que aceita
+    o campo ``identifier`` (e-mail ou CRM) em vez de ``username``.
+    """
+
     serializer_class = CustomTokenObtainPairSerializer
 
 
@@ -37,9 +43,24 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     responses={201: {"type": "object", "properties": {"detail": {"type": "string"}}}},
 )
 class RegisterView(APIView):
+    """POST /api/auth/register/ — cadastro público de novos usuários.
+
+    Qualquer pessoa pode se registrar. A conta criada fica inativa
+    (``is_active=False``) até que um administrador a aprove no painel.
+    """
+
     permission_classes: list = []
 
     def post(self, request: Request) -> Response:
+        """Valida os dados e cria o usuário inativo.
+
+        Args:
+            request: Requisição com ``full_name``, ``email``, ``crm``,
+                ``role``, ``password`` e ``confirm_password``.
+
+        Returns:
+            HTTP 201 com mensagem de confirmação.
+        """
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -55,9 +76,19 @@ class RegisterView(APIView):
     responses=UserSerializer,
 )
 class MeView(APIView):
+    """GET /api/auth/me/ — retorna os dados do usuário autenticado."""
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
+        """Serializa e retorna o usuário da sessão atual.
+
+        Args:
+            request: Requisição autenticada via JWT.
+
+        Returns:
+            HTTP 200 com os dados do usuário.
+        """
         return Response(UserSerializer(request.user).data)
 
 
@@ -76,11 +107,20 @@ class MeView(APIView):
     ),
 )
 class UpdateProfileView(APIView):
-    """PUT/PATCH /api/auth/me/update/ — update name, email, crm."""
+    """PUT/PATCH /api/auth/me/update/ — atualiza nome, e-mail e/ou CRM."""
 
     permission_classes = [IsAuthenticated]
 
     def _save(self, request: Request, partial: bool) -> Response:
+        """Valida e persiste as alterações de perfil.
+
+        Args:
+            request: Requisição com os campos a atualizar.
+            partial: Se ``True``, campos omitidos são mantidos.
+
+        Returns:
+            HTTP 200 com o perfil atualizado.
+        """
         serializer = UpdateProfileSerializer(
             request.user, data=request.data, partial=partial, context={"request": request}
         )
@@ -89,9 +129,11 @@ class UpdateProfileView(APIView):
         return Response(UserSerializer(request.user).data)
 
     def put(self, request: Request) -> Response:
+        """Atualização completa do perfil (todos os campos obrigatórios)."""
         return self._save(request, partial=False)
 
     def patch(self, request: Request) -> Response:
+        """Atualização parcial do perfil (apenas os campos enviados)."""
         return self._save(request, partial=True)
 
 
@@ -102,11 +144,20 @@ class UpdateProfileView(APIView):
     responses={200: {"type": "object", "properties": {"detail": {"type": "string"}}}},
 )
 class UpdatePasswordView(APIView):
-    """POST /api/auth/me/password/ — change current user password."""
+    """POST /api/auth/me/password/ — troca a senha do usuário autenticado."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request: Request) -> Response:
+        """Valida a senha atual e aplica a nova.
+
+        Args:
+            request: Requisição com ``current_password``, ``new_password``
+                e ``confirm_password``.
+
+        Returns:
+            HTTP 200 com mensagem de confirmação.
+        """
         serializer = UpdatePasswordSerializer(
             data=request.data, context={"request": request}
         )
@@ -123,10 +174,23 @@ class UpdatePasswordView(APIView):
     responses=PhysicianSerializer(many=True),
 )
 class PhysicianListView(APIView):
-    """GET /api/auth/users/ — list of active physicians for autocomplete."""
+    """GET /api/auth/users/ — lista médicos e técnicos ativos.
+
+    Usado pelo componente ``PhysicianAutocomplete`` do frontend para
+    popular as sugestões do campo "Médico Solicitante" com dados reais
+    em vez de uma lista mockada.
+    """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
+        """Retorna a lista de profissionais elegíveis.
+
+        Args:
+            request: Requisição autenticada via JWT.
+
+        Returns:
+            HTTP 200 com lista de ``PhysicianSerializer``.
+        """
         users = _repo.get_active_physicians()
         return Response(PhysicianSerializer(users, many=True).data)

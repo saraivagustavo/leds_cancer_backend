@@ -2,15 +2,28 @@ from django.db import models
 
 
 class PatientStatus(models.TextChoices):
+    """Status possíveis de um paciente no sistema."""
+
     ATIVO = "ativo", "Ativo"
     INATIVO = "inativo", "Inativo"
 
 
 class Patient(models.Model):
-    """
-    Represents a patient in the system.
-    Dates are stored as proper Date fields; the API serializes them as dd/MM/yyyy
-    to match the frontend contract.
+    """Representa um paciente cadastrado no sistema LEDS Cancer.
+
+    Datas são armazenadas como campos ``DateField`` nativos do Django;
+    a API as serializa no formato ``dd/MM/yyyy`` para corresponder ao
+    contrato esperado pelo frontend.
+
+    Attributes:
+        name: Nome completo do paciente.
+        birth_date: Data de nascimento.
+        cpf: CPF formatado (``000.000.000-00``), único no sistema.
+        phone: Telefone de contato (opcional).
+        email: E-mail de contato (opcional).
+        status: Situação atual (``ativo`` ou ``inativo``).
+        created_at: Data/hora de criação do registro (automático).
+        updated_at: Data/hora da última atualização (automático).
     """
 
     name = models.CharField(max_length=200)

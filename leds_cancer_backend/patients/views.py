@@ -27,20 +27,38 @@ _TAG = "Pacientes"
     ),
 )
 class PatientListCreateView(APIView):
-    """
-    GET  /api/patients/       — list all patients (supports ?search=)
-    POST /api/patients/       — create a new patient
+    """Listagem e criação de pacientes.
+
+    GET  /api/patients/  — lista todos; suporta ``?search=`` (nome/CPF/e-mail).
+    POST /api/patients/  — cria um novo paciente.
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request) -> Response:
+        """Lista pacientes, com busca opcional.
+
+        Args:
+            request: Aceita ``?search=<termo>`` como query param.
+
+        Returns:
+            HTTP 200 com lista serializada por ``PatientListSerializer``.
+        """
         query = request.query_params.get("search", "").strip()
         patients = _repo.search(query) if query else _repo.get_all()
         serializer = PatientListSerializer(patients, many=True)
         return Response(serializer.data)
 
     def post(self, request: Request) -> Response:
+        """Cria um novo paciente com os dados fornecidos.
+
+        Args:
+            request: Corpo com ``name``, ``birth_date``, ``cpf``,
+                ``phone``, ``email`` e ``status``.
+
+        Returns:
+            HTTP 201 com o paciente criado via ``PatientDetailSerializer``.
+        """
         serializer = PatientWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         patient = _repo.create(**serializer.validated_data)
@@ -75,28 +93,39 @@ class PatientListCreateView(APIView):
     ),
 )
 class PatientDetailView(APIView):
-    """
-    GET    /api/patients/{id}/  — retrieve patient with exams
-    PUT    /api/patients/{id}/  — full update
-    PATCH  /api/patients/{id}/  — partial update
-    DELETE /api/patients/{id}/  — remove patient
+    """Operações sobre um paciente específico.
+
+    GET    /api/patients/{id}/  — detalhe com exames aninhados.
+    PUT    /api/patients/{id}/  — atualização completa.
+    PATCH  /api/patients/{id}/  — atualização parcial.
+    DELETE /api/patients/{id}/  — remoção.
     """
 
     permission_classes = [IsAuthenticated]
 
     def _get_patient_or_404(self, patient_id: int) -> Response | object:
+        """Busca o paciente ou retorna HTTP 404.
+
+        Args:
+            patient_id: Chave primária do paciente.
+
+        Returns:
+            Instância de ``Patient`` ou ``Response`` 404.
+        """
         patient = _repo.get_by_id(patient_id)
         if patient is None:
             return Response({"detail": "Paciente não encontrado."}, status=status.HTTP_404_NOT_FOUND)
         return patient
 
     def get(self, request: Request, pk: int) -> Response:
+        """Retorna o detalhe do paciente incluindo a lista de exames."""
         result = self._get_patient_or_404(pk)
         if isinstance(result, Response):
             return result
         return Response(PatientDetailSerializer(result).data)
 
     def put(self, request: Request, pk: int) -> Response:
+        """Atualização completa — todos os campos são obrigatórios."""
         result = self._get_patient_or_404(pk)
         if isinstance(result, Response):
             return result
@@ -106,6 +135,7 @@ class PatientDetailView(APIView):
         return Response(PatientDetailSerializer(patient).data)
 
     def patch(self, request: Request, pk: int) -> Response:
+        """Atualização parcial — apenas os campos enviados são alterados."""
         result = self._get_patient_or_404(pk)
         if isinstance(result, Response):
             return result
@@ -115,6 +145,7 @@ class PatientDetailView(APIView):
         return Response(PatientDetailSerializer(patient).data)
 
     def delete(self, request: Request, pk: int) -> Response:
+        """Remove o paciente permanentemente do banco de dados."""
         result = self._get_patient_or_404(pk)
         if isinstance(result, Response):
             return result
